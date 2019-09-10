@@ -1,9 +1,25 @@
 
-const eth  =  require("./ConManager.js");
+const pantheon  =  require("./ConManager.js");
 const aztec     =  require("./ContractsAdapter");
 const HDWalletProvider = require("truffle-hdwallet-provider");
+const lineBreak = "________________________________________________________________________\n";
 
+/*
+    This example:
+    1. Connect to Pantheon blockchain
+    2. Deploy AZTEC contracts
+    3. Mint a public ERC20 with an initial supply
+    4. Shields ERC20 token to private AZTEC notes
+    4. Privately transfers AZTEC notes
+    5. Unshields AZTEC notes to ERC20 tokens
+
+*/
 function generateAccounts(){
+	// generate random AZTEC accounts for alice and bob
+	// note: while these accounts live on the same curve than Ethereum addresses, they can be distinct
+	// from Ethereum accounts. Though in practice, the AZTEC transaction (manipulating notes owned
+	// by alice and bob) would need to be signed by a valid Ethereum account (presumably owned by
+	// alice or bob)
     const alice =  aztec.secp256k1.generateAccount();
     const bob   =  aztec.secp256k1.generateAccount();
 
@@ -29,10 +45,10 @@ bob.privateKey='0xdc3d41e11bb8d4d498aa60c3a1d329c41674f1ef76f3ad63ad4097a9602021
 
 async function main(){
 
-    var zkAssetAlice = await aztec.ZKAssetContractRef(eth, 0);
+    var zkAssetAlice = await aztec.ZKAssetContractRef(pantheon, 0);
 
     // get web3 Ethereum accounts and setup default transaction options
-    let accounts  = {};//await eth.getAccounts();
+    let accounts  = {};//await pantheon.getAccounts();
     accounts[0] = alice.address;
     accounts[1] = bob.address;
 
@@ -42,7 +58,7 @@ async function main(){
     ];
 
     // reuse or deploy AZTEC contracts (CryptoEngine, proof validators and ZkAssetMintable)
-	let instances = await aztec.instantiate(eth, txOptions[0], false);
+	let instances = await aztec.instantiate(pantheon, txOptions[0], false);
     
     // ---------------------------------------------------------------------------------------------
     // Minting inital supply of confidental asset ERC20
@@ -106,7 +122,7 @@ async function main(){
     // since we do a utxo transaction with 150 as input (bobNotes) and 50 as output (bobNotes_1)
     // we're left with a positive balance of 100 that will be unshielded to ERC20 tokens
 
-    var zkAsset = await aztec.ZKAssetContractRef(eth, 1); //1 means use bob private key for interaction with AKAsset contract
+    var zkAsset = await aztec.ZKAssetContractRef(pantheon, 1); //1 means use bob private key for interaction with AKAsset contract
 
     await aztec.confidentialTransfer(
         bobNotes, 
@@ -115,10 +131,28 @@ async function main(){
         zkAsset,
         instances.joinSplit,
         accounts[1],
-        txOptions[0],
+        txOptions[1],
         false
     );
     await logERC20balances(instances.erc20, accounts);
+
+    // ---------------------------------------------------------------------------------------------
+    // confidentialTransfer from bob to alice
+    /*console.log("bob privately transfers 20 AZTEC notes and 30 erc20 tokens to alice");
+    const aliceNotes_1 = [
+        aztec.note.create(alice.publicKey, 20),
+    ] // bobNotes_1 value is 50, output aztec notes = 20. 
+    await aztec.confidentialTransfer(
+        bobNotes_1, 
+        [bob, bob],
+        aliceNotes_1, 
+        instances.zkAsset,
+        instances.joinSplit,
+        accounts[0],
+        txOptions[0],
+        false
+    );
+    await logERC20balances(instances.erc20, accounts);*/
 
     process.exit(0);
 }
@@ -131,11 +165,14 @@ async function logERC20balances(erc20, accounts){
     ];
     const shieldedSupply = erc20totalSupply - erc20balances[0] - erc20balances[1];
 
+    console.log(lineBreak);
     console.log("erc20 balances:\n")
     console.log("alice               " + erc20balances[0]);
     console.log("bob                 " + erc20balances[1]);
     console.log("shielded in ZkAsset " + shieldedSupply);
     console.log("total supply        " + erc20totalSupply);
+    console.log(lineBreak);
 }
+
 
 main();

@@ -1,6 +1,7 @@
 
 const HDWalletProvider = require("truffle-hdwallet-provider");
 const contract = require("truffle-contract");
+//const Web3 = require("web3");
 const path = require("path");
 
 const privateKey = "79A38A9AD1B5508FB6A14584A70B6B0360BA9DC3F590B32B49831CCADCD6B7AB";
@@ -10,6 +11,7 @@ const privateKeys =
    "dc3d41e11bb8d4d498aa60c3a1d329c41674f1ef76f3ad63ad4097a96020214a"]; //bob private key
 
 const ethNode = "http://10.10.4.30:8645";
+//var web3;
 
 // returns a truffle-contract 
 async function readContract(abi, privateKeyIndex = 0) {
@@ -26,6 +28,7 @@ async function readContract(abi, privateKeyIndex = 0) {
 }
 
 async function getAccounts() {
+  // const accounts = await web3.eth.getAccounts();
   const accounts = [
     "0x4A57Bbf8666E532eDA673f8d76C90e13F1bc9371",
     "0x7307DDf6A24cBE2e33e476904AF02743Bb5A57B2"
@@ -34,6 +37,7 @@ async function getAccounts() {
 }
 
 module.exports = {
+  //web3,
   readContract,
   getAccounts
 };
