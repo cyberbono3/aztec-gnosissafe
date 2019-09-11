@@ -1,6 +1,7 @@
 
 const pantheon  =  require("./ConManager.js");
 const aztec     =  require("./ContractsAdapter");
+
 const HDWalletProvider = require("truffle-hdwallet-provider");
 const lineBreak = "________________________________________________________________________\n";
 
@@ -92,9 +93,10 @@ async function main(){
         txOptions[0]
     );
     await logERC20balances(instances.erc20, accounts);
-    
+ 
     // ---------------------------------------------------------------------------------------------
     // confidential transfer
+    
     console.log("alice privately transfers 150 AZTEC notes to bob");
     const bobNotes = [
         aztec.note.create(bob.publicKey, 75),
@@ -108,7 +110,8 @@ async function main(){
         instances.joinSplit,
         accounts[0],
         txOptions[0],
-        false
+        true,
+        true
     );
     await logERC20balances(instances.erc20, accounts);
 

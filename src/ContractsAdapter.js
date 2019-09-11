@@ -1,7 +1,10 @@
-
+const HDWalletProvider = require("truffle-hdwallet-provider");
+//const contract = require("truffle-contract");
+const Web3 = require("web3");
 const { constants, proofs } = require("@aztec/dev-utils");
 const { secp256k1, note, proof, abiEncoder } = require("aztec.js");
-
+const path = require("path");
+const sigs = require("./sign.js");
 const lineBreak = "________________________________________________________________________\n";
 
 var ace = '0x36228733d23C60C9bB519576E785ed98035F47e2';
@@ -9,6 +12,7 @@ var joinSplit = '0x7CeCc44a21a93825F3A74970a1ff11A195CCc30D';
 var zkAssetMintable = '0x118889Bdb7538a439CE9dAF471FeB53D43dd4eeA';
 var zkAsset = '0xf74A09c971A8A58258D53d45feD796AC4C48A01C';
 var erc20 = '0x296C847eB5dab834563c40dadbB5F503A0ce39f9';
+var gnosisMultiSig = '0xd4C5e3553385c3Aa47B3367a01Df515D66d1BF80';
 
 async function instantiate(pantheon, txOptions, deploy) {
 	var instances = {};
@@ -23,7 +27,7 @@ async function instantiate(pantheon, txOptions, deploy) {
 	//const ADJUST_SUPPLY       = await pantheon.readContract("AdjustSupply.json");
 	const ERC20_MINTABLE = await pantheon.readContract("ERC20Mintable.json");
 	//const ZKASSET = await pantheon.readContract("ZkAsset.json");
-	
+
 	if (deploy) {
 		// deploy crypto engine contract
 		instances.ace = (await ACE.new(txOptions));
@@ -73,14 +77,14 @@ async function instantiate(pantheon, txOptions, deploy) {
 	return instances;
 };
 
-async function ZKAssetContractRef(pantheon, privateKeyIndex = 0){
-	const ZKASSET = await pantheon.readContract("ZkAsset.json", privateKeyIndex); 
+async function ZKAssetContractRef(pantheon, privateKeyIndex = 0) {
+	const ZKASSET = await pantheon.readContract("ZkAsset.json", privateKeyIndex);
 	return await ZKASSET.at(zkAsset);
 }
 
 // -------------------------------------------------------------------------------------------------
 // Confidential transfer. Destroy inputNotes, creates outputNotes through a joinSplit transaction
-async function confidentialTransfer(inputNotes, inputNoteOwners, outputNotes, zkAssetMintable, joinSplit, publicOwner, txOptions, display = true) {
+async function confidentialTransfer(inputNotes, inputNoteOwners, outputNotes, zkAssetMintable, joinSplit, publicOwner, txOptions, multiSig = false, display = true) {
 	// compute kPublic
 	var kPublic = 0;
 	for (i = 0; i < outputNotes.length; i++) {
@@ -105,11 +109,84 @@ async function confidentialTransfer(inputNotes, inputNoteOwners, outputNotes, zk
 
 	// send the transaction to the blockchain
 	try {
-		let receipt = await zkAssetMintable.confidentialTransfer(proofData, txOptions)
-		if (display == true) {
-			console.log("confidentialTransfer success. events:");
-			logNoteEvents(receipt.logs);
-			console.log(lineBreak);
+		if (!multiSig) {
+			let receipt = await zkAssetMintable.confidentialTransfer(proofData, txOptions)
+			if (display == true) {
+				console.log("confidentialTransfer success. events:");
+				logNoteEvents(receipt.logs);
+				console.log(lineBreak);
+			}
+		}
+		else {
+			const provider = new HDWalletProvider("a843e586cdf38b09ddcc6456ae555f18711371ef72334f1e6154501fba8be1cc",
+				"https://rpc.slock.it/goerli"
+				//"http://10.10.4.30:8645"
+			);
+
+			var web3 = new Web3(provider);
+
+			var pathContracts = "../contracts/";
+			let abi = require(path.join(pathContracts, "GnosisSafe.json"));
+			var multiSigContract = new web3.eth.Contract(abi.abi,gnosisMultiSig);
+			console.log("MultiSig Addr:"+multiSigContract.address);
+			//var multiSigContract = multiSigContract_.at(gnosisMultiSig);
+
+			var payload = web3.eth.abi.encodeFunctionCall({
+				"constant": false,
+				"inputs": [
+					{
+						"name": "_proofData",
+						"type": "bytes"
+					}
+				],
+				"name": "confidentialTransfer",
+				"outputs": [],
+				"payable": false,
+				"stateMutability": "nonpayable",
+				"type": "function"
+			}, [proofData]);
+
+
+			var nBN = await multiSigContract.methods.nonce().call();
+			var nounce = parseInt(nBN.toString());
+			console.log("Nonce of Multisig:" + nounce);
+
+			var hash = await multiSigContract.methods.getTransactionHash(
+				zkAssetMintable.address,
+				0,
+				payload, 
+				0, //0 for call, 1 for delegate call
+				0, // 
+				1000000,
+				0,
+				'0x0000000000000000000000000000000000000000',
+				'0x0000000000000000000000000000000000000000',
+				nounce
+			).call();
+			console.log("multisig hash: " + hash);
+			
+			var sig = await sigs.signHash("0xa843e586cdf38b09ddcc6456ae555f18711371ef72334f1e6154501fba8be1cc", hash); //sign with private key of alice, hardcoding dirty fast coding
+			console.log("signatures " + sig.signatureBytes);
+
+			var result = await multiSigContract.methods.execTransaction(
+				zkAssetMintable.address,
+				0,
+				payload, // <<
+				0, //0 for call, 1 for delegate call
+				0, // 
+				1000000,
+				0,
+				'0x0000000000000000000000000000000000000000',
+				'0x0000000000000000000000000000000000000000',
+				sig.signatureBytes
+				
+			).send({from:'0xF99dbd3CFc292b11F74DeEa9fa730825Ee0b56f2'}); //from alice
+
+			console.log("Multisig result: ");
+			console.log(result);
+
+
+
 		}
 
 	} catch (error) {

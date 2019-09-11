@@ -10,7 +10,7 @@ const privateKeys =
   ["a843e586cdf38b09ddcc6456ae555f18711371ef72334f1e6154501fba8be1cc",  //alice private key
    "dc3d41e11bb8d4d498aa60c3a1d329c41674f1ef76f3ad63ad4097a96020214a"]; //bob private key
 
-const ethNode = "http://10.10.4.30:8645";
+const ethNode = "https://rpc.slock.it/goerli";//"http://10.10.4.30:8645";
 //var web3;
 
 // returns a truffle-contract 
