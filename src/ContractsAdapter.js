@@ -7,7 +7,7 @@ const path = require("path");
 const sigs = require("./sign.js");
 const lineBreak = "________________________________________________________________________\n";
 
-var ace = '0x36228733d23C60C9bB519576E785ed98035F47e2';
+var aceAddr = '0x36228733d23C60C9bB519576E785ed98035F47e2';
 var joinSplit = '0x7CeCc44a21a93825F3A74970a1ff11A195CCc30D';
 var zkAssetMintable = '0x118889Bdb7538a439CE9dAF471FeB53D43dd4eeA';
 var zkAsset = '0xf74A09c971A8A58258D53d45feD796AC4C48A01C';
@@ -59,7 +59,7 @@ async function instantiate(pantheon, txOptions, deploy) {
 		//await instances.ace.setProof(proofs.MINT_PROOF, instances.adjustSupply.address, txOptions);
 	}
 	else {
-		instances.ace = await ACE.at(ace);
+		instances.ace = await ACE.at(aceAddr);
 		instances.joinSplit = await JOINSPLIT.at(joinSplit);
 		instances.erc20 = await ERC20_MINTABLE.at(erc20);
 		instances.zkAssetMintable = await ZKASSET_MINTABLE.at(zkAssetMintable);
@@ -127,8 +127,8 @@ async function confidentialTransfer(inputNotes, inputNoteOwners, outputNotes, zk
 
 			var pathContracts = "../contracts/";
 			let abi = require(path.join(pathContracts, "GnosisSafe.json"));
-			var multiSigContract = new web3.eth.Contract(abi.abi,gnosisMultiSig);
-			console.log("MultiSig Addr:"+multiSigContract.address);
+			var multiSigContract = new web3.eth.Contract(abi.abi, gnosisMultiSig);
+			console.log("MultiSig Addr:" + multiSigContract.address);
 			//var multiSigContract = multiSigContract_.at(gnosisMultiSig);
 
 			var payload = web3.eth.abi.encodeFunctionCall({
@@ -146,47 +146,7 @@ async function confidentialTransfer(inputNotes, inputNoteOwners, outputNotes, zk
 				"type": "function"
 			}, [proofData]);
 
-
-			var nBN = await multiSigContract.methods.nonce().call();
-			var nounce = parseInt(nBN.toString());
-			console.log("Nonce of Multisig:" + nounce);
-
-			var hash = await multiSigContract.methods.getTransactionHash(
-				zkAssetMintable.address,
-				0,
-				payload, 
-				0, //0 for call, 1 for delegate call
-				0, // 
-				1000000,
-				0,
-				'0x0000000000000000000000000000000000000000',
-				'0x0000000000000000000000000000000000000000',
-				nounce
-			).call();
-			console.log("multisig hash: " + hash);
-			
-			var sig = await sigs.signHash("0xa843e586cdf38b09ddcc6456ae555f18711371ef72334f1e6154501fba8be1cc", hash); //sign with private key of alice, hardcoding dirty fast coding
-			console.log("signatures " + sig.signatureBytes);
-
-			var result = await multiSigContract.methods.execTransaction(
-				zkAssetMintable.address,
-				0,
-				payload, // <<
-				0, //0 for call, 1 for delegate call
-				0, // 
-				1000000,
-				0,
-				'0x0000000000000000000000000000000000000000',
-				'0x0000000000000000000000000000000000000000',
-				sig.signatureBytes
-				
-			).send({from:'0xF99dbd3CFc292b11F74DeEa9fa730825Ee0b56f2'}); //from alice
-
-			console.log("Multisig result: ");
-			console.log(result);
-
-
-
+			exeMultiSig(payload,zkAssetMintable.address, web3);
 		}
 
 	} catch (error) {
@@ -197,7 +157,7 @@ async function confidentialTransfer(inputNotes, inputNoteOwners, outputNotes, zk
 
 // -------------------------------------------------------------------------------------------------
 // Convert some ERC20 to zkassets
-async function shieldsERC20toZkAsset(inputNotes, inputNoteOwner, outputNotes, zkAsset, ace, joinSplit, publicOwner, txOptions) {
+async function shieldsERC20toZkAsset(inputNotes, inputNoteOwner, outputNotes, zkAsset, ace, joinSplit, publicOwner, txOptions, multisig = false) {
 	// compute kPublic
 	var kPublic = 0;
 	for (i = 0; i < outputNotes.length; i++) {
@@ -208,7 +168,7 @@ async function shieldsERC20toZkAsset(inputNotes, inputNoteOwner, outputNotes, zk
 	}
 
 	// construct the joinsplit proof
-	var proofData = proof.joinSplit.encodeJoinSplitTransaction({
+	var proofData = await proof.joinSplit.encodeJoinSplitTransaction({
 		inputNotes: [],
 		outputNotes: outputNotes,
 		senderAddress: txOptions.from,
@@ -221,19 +181,81 @@ async function shieldsERC20toZkAsset(inputNotes, inputNoteOwner, outputNotes, zk
 	const depositProofOutput = abiEncoder.outputCoder.getProofOutput(proofData.expectedOutput, 0);
 	const depositProofHash = abiEncoder.outputCoder.hashProofOutput(depositProofOutput);
 
-	// 2. ace allows depositProofHash to spend erc20 tokens on behalf ethereumAccounts[0]
-	await ace.publicApprove(
-		zkAsset.address,
-		depositProofHash,
-		kPublic,
-		txOptions
-	)
+	if (multisig) {
 
-	try {
-		let receipt = await zkAsset.confidentialTransfer(proofData.proofData, txOptions);
-	} catch (error) {
-		console.log("deposit failed: " + error);
-		process.exit(-1);
+		const provider = new HDWalletProvider("a843e586cdf38b09ddcc6456ae555f18711371ef72334f1e6154501fba8be1cc",
+			"https://rpc.slock.it/goerli"
+			//"http://10.10.4.30:8645"
+		);
+
+		var web3 = new Web3(provider);
+
+		var pathContracts = "../contracts/";
+		let abi = require(path.join(pathContracts, "GnosisSafe.json"));
+		var multiSigContract = new web3.eth.Contract(abi.abi, gnosisMultiSig);
+		console.log("MultiSig Addr:" + multiSigContract.address);
+		//var multiSigContract = multiSigContract_.at(gnosisMultiSig);
+
+		var payload = web3.eth.abi.encodeFunctionCall({
+			"constant": false,
+			"inputs": [
+				{
+					"name": "_registryOwner",
+					"type": "address"
+				},
+				{
+					"name": "_proofHash",
+					"type": "bytes32"
+				},
+				{
+					"name": "_value",
+					"type": "uint256"
+				}
+			],
+			"name": "publicApprove",
+			"outputs": [],
+			"payable": false,
+			"stateMutability": "nonpayable",
+			"type": "function"
+		}, [zkAsset.address,
+				depositProofHash,
+				kPublic]);
+
+		exeMultiSig(payload,ace.address, web3);
+
+		var confidentialTransferPayload = web3.eth.abi.encodeFunctionCall({
+            "constant": false,
+            "inputs": [
+                {
+                    "name": "_proofData",
+                    "type": "bytes"
+                }
+            ],
+            "name": "confidentialTransfer",
+            "outputs": [],
+            "payable": false,
+            "stateMutability": "nonpayable",
+            "type": "function"
+		}, [proofData.proofData]);
+
+		exeMultiSig(confidentialTransferPayload,zkAsset.address, web3);
+
+	}
+	else {
+		// 2. ace allows depositProofHash to spend erc20 tokens on behalf ethereumAccounts[0]
+		await ace.publicApprove(
+			zkAsset.address,
+			depositProofHash,
+			kPublic,
+			txOptions
+		)
+
+		try {
+			let receipt = await zkAsset.confidentialTransfer(proofData.proofData, txOptions);
+		} catch (error) {
+			console.log("deposit failed: " + error);
+			process.exit(-1);
+		}
 	}
 
 }
@@ -251,11 +273,56 @@ function logNoteEvents(logs) {
 	}
 }
 
+async function exeMultiSig(payload,to, web3) {
+
+	var pathContracts = "../contracts/";
+	let abi = require(path.join(pathContracts, "GnosisSafe.json"));
+	var multiSigContract = new web3.eth.Contract(abi.abi, gnosisMultiSig);
+
+	var nBN = await multiSigContract.methods.nonce().call();
+	var nounce = parseInt(nBN.toString());
+	console.log("Nonce of Multisig:" + nounce);
+
+	var hash = await multiSigContract.methods.getTransactionHash(
+		to,
+		0,
+		payload,
+		0, //0 for call, 1 for delegate call
+		0, // 
+		1000000,
+		0,
+		'0x0000000000000000000000000000000000000000',
+		'0x0000000000000000000000000000000000000000',
+		nounce
+	).call();
+
+	var sig = await sigs.signHash("0xa843e586cdf38b09ddcc6456ae555f18711371ef72334f1e6154501fba8be1cc", hash); //sign with private key of alice, hardcoding dirty fast coding
+	console.log("signatures " + sig.signatureBytes);
+
+	var result = await multiSigContract.methods.execTransaction(
+		to,
+		0,
+		payload, // <<
+		0, //0 for call, 1 for delegate call
+		0, // 
+		1000000,
+		0,
+		'0x0000000000000000000000000000000000000000',
+		'0x0000000000000000000000000000000000000000',
+		sig.signatureBytes
+
+	).send({ from: '0xF99dbd3CFc292b11F74DeEa9fa730825Ee0b56f2', gas: '0x1E8480' }); //from alice
+
+	console.log("Multisig result: ");
+	console.log(result);
+}
+
 module.exports = {
 	instantiate,
 	confidentialTransfer,
 	shieldsERC20toZkAsset,
 	secp256k1,
 	note,
-	ZKAssetContractRef
+	ZKAssetContractRef,
+	exeMultiSig
 };
