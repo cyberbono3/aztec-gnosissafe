@@ -109,8 +109,10 @@ async function confidentialTransfer(inputNotes, inputNoteOwners, outputNotes, zk
 
 	// send the transaction to the blockchain
 	try {
+		console.log("multiSig :", multiSig); //aztec issue
 		if (!multiSig) {
 			let receipt = await zkAssetMintable.confidentialTransfer(proofData, txOptions)
+			console.log("receipt", receipt);
 			if (display == true) {
 				console.log("confidentialTransfer success. events:");
 				logNoteEvents(receipt.logs);
@@ -182,7 +184,7 @@ async function shieldsERC20toZkAsset(inputNotes, inputNoteOwner, outputNotes, zk
 	const depositProofHash = abiEncoder.outputCoder.hashProofOutput(depositProofOutput);
 
 	if (multisig) {
-
+		console.log("shieldsERC20toZkAsset multisig is ", multisig);
 		const provider = new HDWalletProvider("a843e586cdf38b09ddcc6456ae555f18711371ef72334f1e6154501fba8be1cc",
 			"https://rpc.slock.it/goerli"
 			//"http://10.10.4.30:8645"
@@ -193,7 +195,7 @@ async function shieldsERC20toZkAsset(inputNotes, inputNoteOwner, outputNotes, zk
 		var pathContracts = "../contracts/";
 		let abi = require(path.join(pathContracts, "GnosisSafe.json"));
 		var multiSigContract = new web3.eth.Contract(abi.abi, gnosisMultiSig);
-		console.log("MultiSig Addr:" + multiSigContract.address);
+		console.log("shieldsERC20toZkAsset MultiSig Addr:" + multiSigContract.address);// aztec issue "MultiSig Addr:" "undefined"
 		//var multiSigContract = multiSigContract_.at(gnosisMultiSig);
 
 		var payload = web3.eth.abi.encodeFunctionCall({
@@ -220,8 +222,8 @@ async function shieldsERC20toZkAsset(inputNotes, inputNoteOwner, outputNotes, zk
 		}, [zkAsset.address,
 				depositProofHash,
 				kPublic]);
+		await exeMultiSig(payload, ace.address, web3);
 
-		exeMultiSig(payload,ace.address, web3);
 
 		var confidentialTransferPayload = web3.eth.abi.encodeFunctionCall({
             "constant": false,
@@ -238,7 +240,7 @@ async function shieldsERC20toZkAsset(inputNotes, inputNoteOwner, outputNotes, zk
             "type": "function"
 		}, [proofData.proofData]);
 
-		exeMultiSig(confidentialTransferPayload,zkAsset.address, web3);
+		await exeMultiSig(confidentialTransferPayload,zkAsset.address, web3);
 
 	}
 	else {
@@ -278,7 +280,6 @@ async function exeMultiSig(payload,to, web3) {
 	var pathContracts = "../contracts/";
 	let abi = require(path.join(pathContracts, "GnosisSafe.json"));
 	var multiSigContract = new web3.eth.Contract(abi.abi, gnosisMultiSig);
-
 	var nBN = await multiSigContract.methods.nonce().call();
 	var nounce = parseInt(nBN.toString());
 	console.log("Nonce of Multisig:" + nounce);

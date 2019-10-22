@@ -102,8 +102,9 @@ async function main() {
             "type": "function"
         }, [instances.ace.address,
                 erc20totalSupply]);
-
+        // Executing aztec.exeMultiSig
         await aztec.exeMultiSig(payloadApprove, instances.erc20.address, web3);
+        //Executed aztec.exeMultiSig
     }
     else {
         // delegate erc20 token access from account[0] to AZTEC.ACE contract
@@ -122,11 +123,12 @@ async function main() {
         aztec.note.create( alice.publicKey, 100),
         aztec.note.create( alice.publicKey, 50),
     ];
+    console.log("Multisig: ", multiSigExe) //multiSigExe must be true
     await aztec.shieldsERC20toZkAsset(
         [],
         [],
         aliceNotes,
-        zkAssetAlice,
+        zkAssetAlice, //aztec issue maybe to deploy ZkAsset for Multisig?
         instances.ace,
         instances.joinSplit,
         multiSigExe ? gnosisMultiSig :accounts[0],
@@ -172,7 +174,7 @@ async function main() {
         bobNotes,
         [bob, bob],
         bobNotes_1,
-        zkAsset,
+        zkAsset, //? zkassertAlice  ,multisig
         instances.joinSplit,
         accounts[1],
         txOptions[1],
