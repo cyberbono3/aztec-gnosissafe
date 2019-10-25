@@ -169,15 +169,15 @@ async function main() {
     // we're left with a positive balance of 100 that will be unshielded to ERC20 tokens
 
     var zkAsset = await aztec.ZKAssetContractRef(pantheon, 1); //1 means use bob private key for interaction with AKAsset contract
-
+    // https://github.com/PegaSysEng/pantheon-aztec-quickstart/blob/52410e5a9a6d7aee2148525d78256ae291c3e56f/src/examples/zkasset-erc20.js
     await aztec.confidentialTransfer(
         bobNotes,
         [bob, bob],
         bobNotes_1,
-        zkAsset, //? zkassertAlice  ,multisig
+        zkAssetAlice, //? zkassertAlice  ,multisig changed from zkAsset
         instances.joinSplit,
         accounts[1],
-        txOptions[1],
+        txOptions[1], //changed from  txOptions[1]
         false
     );
     await logERC20balances(instances.erc20, accounts);
