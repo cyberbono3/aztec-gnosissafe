@@ -49,7 +49,7 @@ async function main() {
         "https://rpc.slock.it/goerli"
         //"http://10.10.4.30:8645"
     );
-    var multiSigExe = true;
+    var multiSigExe =  false;
 
     var web3 = new Web3(provider);
 
@@ -168,7 +168,7 @@ async function main() {
     // since we do a utxo transaction with 150 as input (bobNotes) and 50 as output (bobNotes_1)
     // we're left with a positive balance of 100 that will be unshielded to ERC20 tokens
 
-    var zkAsset = await aztec.ZKAssetContractRef(pantheon, 1); //1 means use bob private key for interaction with AKAsset contract
+    //var zkAssetBob = await aztec.ZKAssetContractRef(pantheon, 1); //1 means use bob private key for interaction with AKAsset contract
     // https://github.com/PegaSysEng/pantheon-aztec-quickstart/blob/52410e5a9a6d7aee2148525d78256ae291c3e56f/src/examples/zkasset-erc20.js
     await aztec.confidentialTransfer(
         bobNotes,
@@ -176,10 +176,11 @@ async function main() {
         bobNotes_1,
         zkAssetAlice, //? zkassertAlice  ,multisig changed from zkAsset
         instances.joinSplit,
-        accounts[1],
-        txOptions[1], //changed from  txOptions[1]
-        false
-    );
+        accounts[1], //publicOwner receiver of erc-20 tokens deposit if it is erc-20 sender , withdraw receiver of erc-20 
+        txOptions[0],
+        multiSigExe,
+        true
+    );//
     await logERC20balances(instances.erc20, accounts);
 
     // ---------------------------------------------------------------------------------------------

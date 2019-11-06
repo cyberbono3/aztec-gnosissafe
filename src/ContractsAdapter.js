@@ -148,7 +148,7 @@ async function confidentialTransfer(inputNotes, inputNoteOwners, outputNotes, zk
 				"type": "function"
 			}, [proofData]);
 
-			exeMultiSig(payload,zkAssetMintable.address, web3);
+			await exeMultiSig(payload,zkAssetMintable.address, web3);
 		}
 
 	} catch (error) {
@@ -277,6 +277,7 @@ function logNoteEvents(logs) {
 
 async function exeMultiSig(payload,to, web3) {
 
+
 	var pathContracts = "../contracts/";
 	let abi = require(path.join(pathContracts, "GnosisSafe.json"));
 	var multiSigContract = new web3.eth.Contract(abi.abi, gnosisMultiSig);
@@ -296,6 +297,8 @@ async function exeMultiSig(payload,to, web3) {
 		'0x0000000000000000000000000000000000000000',
 		nounce
 	).call();
+	console.log("exeMultiSig hash", hash);
+
 
 	var sig = await sigs.signHash("0xa843e586cdf38b09ddcc6456ae555f18711371ef72334f1e6154501fba8be1cc", hash); //sign with private key of alice, hardcoding dirty fast coding
 	console.log("signatures " + sig.signatureBytes);
